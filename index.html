@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camfurniture Factory - Financial Turnaround</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0a0a;
+            color: #f1f5f9;
+        }
+        
+        #sofa-canvas-container {
+            position: relative;
+            width: 100%;
+            height: 50vh;
+            cursor: grab;
+        }
+        #sofa-canvas-container:active {
+            cursor: grabbing;
+        }
+
+        #sofa-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #tooltip-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through */
+            overflow: hidden;
+        }
+
+        .tooltip {
+            position: absolute;
+            background-color: rgba(30, 41, 59, 0.8); /* slate-800 */
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: all;
+            min-width: 280px;
+        }
+        
+        .tooltip.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .tooltip-line {
+            stroke: rgba(255,255,255,0.5);
+            stroke-width: 2;
+            stroke-dasharray: 5 5;
+            animation: dash 1s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -10;
+            }
+        }
+        
+        .content-card {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .content-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .card-bg-icon {
+            position: absolute;
+            right: 1rem;
+            bottom: 1rem;
+            width: 6rem;
+            height: 6rem;
+            opacity: 0.05;
+            color: #fff;
+            pointer-events: none;
+            transform: rotate(-15deg);
+        }
+
+        .stat-value { font-weight: 700; font-size: 2.25rem; }
+        .stat-label { font-size: 0.875rem; opacity: 0.7; }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body class="w-full overflow-x-hidden">
+
+    <div class="relative min-h-screen flex flex-col items-center justify-center p-4 text-center overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-b from-gray-900 via-black to-black"></div>
+        <div class="relative z-10">
+            <h1 class="text-5xl md:text-7xl font-black uppercase tracking-wider text-white">Camfurniture</h1>
+            <p class="mt-4 text-xl md:text-2xl font-light text-slate-300">A Story of Financial Transformation</p>
+            <p class="mt-2 text-sm text-slate-400">Analysis by BLN Consulting Group</p>
+        </div>
+        <div class="absolute bottom-10 z-10 text-slate-400 animate-pulse">Scroll down to see the transformation</div>
+    </div>
+
+    <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        
+        <section class="mb-24 reveal">
+            <h3 class="text-3xl font-bold text-white mb-2 text-center">Interactive Cost Breakdown</h3>
+            <p class="text-slate-400 mb-8 text-center">Click components to see cost details. Drag to rotate, scroll to zoom.</p>
+            <div id="sofa-canvas-container" class="content-card rounded-2xl p-4">
+                <canvas id="sofa-canvas"></canvas>
+                <div id="tooltip-container">
+                    <svg class="w-full h-full">
+                        <line id="tooltip-svg-line" class="tooltip-line" x1="0" y1="0" x2="0" y2="0" style="display:none;"/>
+                    </svg>
+                    <div id="tooltip" class="tooltip">
+                        <h4 id="tooltip-title" class="font-bold text-lg mb-2"></h4>
+                        <div id="tooltip-body"></div>
+                        <button id="tooltip-close" class="absolute top-2 right-3 text-2xl text-slate-400 hover:text-white leading-none">&times;</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="text-center mb-16 reveal">
+            <h2 class="text-4xl font-bold tracking-tight text-white sm:text-5xl">Before & After Consulting</h2>
+            <p class="mt-4 text-lg text-slate-400">A comparative analysis of key financial metrics, showcasing significant improvements.</p>
+        </div>
+
+        <section class="mb-24 reveal">
+            <h3 class="text-3xl font-bold text-white mb-2 text-center">Variable Cost Per Sofa</h3>
+            <p class="text-slate-400 mb-8 text-center">Strategic changes led to a <span class="text-green-400 font-bold">10.83%</span> reduction in variable costs.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="content-card rounded-2xl p-6">
+                    <h4 class="text-2xl font-semibold mb-4 text-center text-red-400">Before</h4>
+                    <div class="w-full max-w-md mx-auto h-64 md:h-80"><canvas id="beforeCostChart"></canvas></div>
+                    <p class="text-center mt-4 text-2xl font-bold">$300.00</p>
+                    <p class="text-center text-slate-400">Total Variable Cost</p>
+                </div>
+                <div class="content-card rounded-2xl p-6">
+                    <h4 class="text-2xl font-semibold mb-4 text-center text-green-400">After</h4>
+                    <div class="w-full max-w-md mx-auto h-64 md:h-80"><canvas id="afterCostChart"></canvas></div>
+                     <p class="text-center mt-4 text-2xl font-bold">$267.50</p>
+                    <p class="text-center text-slate-400">Total Variable Cost</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-24 reveal">
+            <h3 class="text-3xl font-bold text-white mb-2 text-center">Profitability & Margins</h3>
+            <p class="text-slate-400 mb-8 text-center">From breaking even to achieving a healthy profit margin.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="content-card rounded-2xl p-8 flex flex-col justify-center items-center"><h4 class="text-2xl font-semibold mb-6 text-red-400">Before</h4><div class="text-center"><p class="stat-value text-red-400">0%</p><p class="stat-label">Operating Profit Margin</p></div><div class="text-center mt-8"><p class="stat-value">62.5%</p><p class="stat-label">Gross Profit Margin</p></div>
+                    <svg class="card-bg-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </div>
+                <div class="content-card rounded-2xl p-8 flex flex-col justify-center items-center"><h4 class="text-2xl font-semibold mb-6 text-green-400">After</h4><div class="text-center"><p class="stat-value text-green-400">24.9%</p><p class="stat-label">Operating Profit Margin</p></div><div class="text-center mt-8"><p class="stat-value">66.56%</p><p class="stat-label">Gross Profit Margin</p></div>
+                    <svg class="card-bg-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                </div>
+            </div>
+        </section>
+
+        <section class="reveal">
+            <h3 class="text-3xl font-bold text-white mb-2 text-center">Investment Centre Performance</h3>
+            <p class="text-slate-400 mb-8 text-center">Transforming idle capital into a powerful engine for growth.</p>
+             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="content-card rounded-2xl p-8 flex flex-col justify-center items-center"><h4 class="text-2xl font-semibold mb-6 text-red-400">Before</h4><div class="text-center"><p class="stat-value text-red-400">0%</p><p class="stat-label">Return on Investment (ROI)</p></div><div class="text-center mt-8"><p class="stat-value text-red-400">$0</p><p class="stat-label">Residual Income (RI)</p></div>
+                    <svg class="card-bg-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>
+                </div>
+                <div class="content-card rounded-2xl p-8 flex flex-col justify-center items-center"><h4 class="text-2xl font-semibold mb-6 text-green-400">After</h4><div class="text-center"><p class="stat-value text-green-400">35.85%</p><p class="stat-label">Return on Investment (ROI)</p></div><div class="text-center mt-8"><p class="stat-value text-green-400">$258,500</p><p class="stat-label">Residual Income (RI)</p></div>
+                    <svg class="card-bg-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                </div>
+            </div>
+             <p class="text-center mt-8 text-slate-400">Based on an annual operating profit of <span class="font-bold text-white">$358,500</span>.</p>
+        </section>
+    </main>
+
+    <footer class="text-center py-8 mt-16 bg-slate-900">
+        <p class="text-slate-400">A Consulting Report by <a href="https://hayson001.github.io/BLNGroup/" target="_blank" rel="noopener noreferrer" class="font-bold text-blue-400 hover:underline">BLN Consulting Group</a></p>
+        <p class="text-slate-500 text-sm mt-1">© 2025 - All Rights Reserved</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const canvasContainer = document.getElementById('sofa-canvas-container');
+            const canvas = document.getElementById('sofa-canvas');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(50, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+            
+            renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+            directionalLight.position.set(5, 10, 7.5);
+            scene.add(directionalLight);
+
+            camera.position.set(0, 3, 12);
+            camera.lookAt(0, 1, 0);
+
+            const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.8, metalness: 0.2 });
+            const leatherMaterial = new THREE.MeshStandardMaterial({ color: 0x654321, roughness: 0.6, metalness: 0.4 });
+            
+            const sofaGroup = new THREE.Group();
+            const clickableObjects = [];
+            let selectedObject = null;
+            let animatedWorkerHead = null;
+
+            // --- Sofa Model ---
+            const base = new THREE.Mesh(new THREE.BoxGeometry(6, 0.5, 2.5), woodMaterial);
+            base.position.y = 0.25;
+            base.userData = { name: 'Direct Material: Teak Wood', before: 50, after: 47.50 };
+            sofaGroup.add(base);
+            clickableObjects.push(base);
+            
+            const backrest = new THREE.Mesh(new THREE.BoxGeometry(6, 2, 0.5), woodMaterial);
+            backrest.position.set(0, 1.5, -1);
+            backrest.userData = base.userData;
+            sofaGroup.add(backrest);
+            clickableObjects.push(backrest);
+
+            const seatCushion = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.8, 2.2), leatherMaterial);
+            seatCushion.position.y = 0.9;
+            seatCushion.userData = { name: 'Direct Material: Italian Leather', before: 100, after: 95 };
+            sofaGroup.add(seatCushion);
+            clickableObjects.push(seatCushion);
+            
+            // --- Worker Models with Poses ---
+            function createHammer() {
+                const hammer = new THREE.Group();
+                const handleMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+                const headMaterial = new THREE.MeshStandardMaterial({ color: 0xA9A9A9, metalness: 0.8, roughness: 0.4 });
+                const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.6, 8), handleMaterial);
+                const head = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.12, 0.12), headMaterial);
+                head.position.y = 0.3;
+                hammer.add(handle, head);
+                return hammer;
+            }
+
+            function createConstructionHat() {
+                const hatGroup = new THREE.Group();
+                const hatMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 }); // Yellow color
+                
+                const dome = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.28, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+                    hatMaterial
+                );
+                dome.position.y = -0.05;
+                hatGroup.add(dome);
+
+                const brim = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.38, 0.38, 0.04, 16),
+                    hatMaterial
+                );
+                brim.position.y = -0.05;
+                hatGroup.add(brim);
+
+                return hatGroup;
+            }
+
+            function createWorker(opts = {}) {
+                const materials = {
+                    skin: new THREE.MeshStandardMaterial({ color: 0xDEB887 }),
+                    shirt: new THREE.MeshStandardMaterial({ color: opts.shirtColor || 0x4682B4 }),
+                    pants: new THREE.MeshStandardMaterial({ color: 0x36454F })
+                };
+
+                const worker = new THREE.Group();
+                worker.userData = {
+                    isWalking: opts.isWalking || false,
+                    walkDirection: 1,
+                    walkSpeed: 0.015,
+                    walkBounds: opts.walkBounds || { min: -2.5, max: 2.5 }
+                };
+
+                const torso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1, 0.4), materials.shirt);
+                const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), materials.skin);
+                const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.8, 0.25), materials.pants);
+                const rightLeg = leftLeg.clone();
+                const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.8, 0.2), materials.skin);
+                const rightArm = leftArm.clone();
+
+                if (opts.pose === 'kneeling') {
+                    torso.position.y = 0.2;
+                    head.position.y = 0.95;
+                    leftLeg.scale.y = 0.5;
+                    leftLeg.position.set(-0.2, -0.25, 0.3);
+                    rightLeg.position.set(0.2, -0.1, -0.3);
+                    rightLeg.rotation.x = -Math.PI / 2.2;
+                    leftArm.position.set(-0.45, 0.2, 0);
+                    rightArm.position.set(0.45, 0.3, 0.1);
+                    rightArm.rotation.x = -Math.PI / 3;
+                    const hammer = createHammer();
+                    hammer.position.set(0, -0.3, 0.05);
+                    hammer.rotation.z = Math.PI / 2;
+                    rightArm.add(hammer);
+                } else { // Standing pose
+                    torso.position.y = 0.5;
+                    head.position.y = 1.25;
+                    leftLeg.position.set(-0.2, -0.4, 0);
+                    rightLeg.position.set(0.2, -0.4, 0);
+                    leftArm.position.set(-0.45, 0.5, 0);
+                    rightArm.position.set(0.45, 0.5, 0);
+                    if (!opts.isWalking) {
+                         torso.rotation.x = 0.1; 
+                         leftArm.rotation.z = 0.25; 
+                         rightArm.rotation.z = -0.25;
+                    }
+                }
+
+                worker.add(torso, head, leftLeg, rightLeg, leftArm, rightArm);
+                
+                if (opts.hasHat) {
+                    const hat = createConstructionHat();
+                    hat.position.y = 1.55;
+                    worker.add(hat);
+                }
+                
+                if (opts.isAnimatedHead) animatedWorkerHead = head;
+
+                worker.userData.leftLeg = leftLeg;
+                worker.userData.rightLeg = rightLeg;
+                worker.userData.leftArm = leftArm;
+                worker.userData.rightArm = rightArm;
+
+                return worker;
+            }
+
+            const laborData = { name: 'Direct Labor', before: 100, after: 80 };
+            const workerPositions = [
+                { pose: 'kneeling', shirtColor: 0xB22222, x: -2.5, z: 1.8, rotY: THREE.MathUtils.degToRad(135) },
+                { pose: 'standing', hasHat: true, shirtColor: 0x228B22, x: 0, z: -2.2, isWalking: true, rotY: -Math.PI / 2 },
+                { pose: 'standing', isAnimatedHead: true, shirtColor: '#4682B4', x: 2.5, z: 1.8, rotY: Math.PI * 0.9 }
+            ];
+            
+            const workers = [];
+            workerPositions.forEach(pos => {
+                const worker = createWorker(pos);
+                worker.position.set(pos.x, 0.4, pos.z);
+                if (pos.rotY) worker.rotation.y = pos.rotY;
+                
+                worker.traverse((child) => {
+                    if (child.isMesh) {
+                        child.userData = laborData;
+                        clickableObjects.push(child);
+                    }
+                });
+                sofaGroup.add(worker);
+                workers.push(worker);
+            });
+
+            scene.add(sofaGroup);
+            sofaGroup.position.y = -1;
+
+            // --- Interaction and Animation ---
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            let hasDragged = false; 
+
+            canvasContainer.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                hasDragged = false;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+            canvasContainer.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                
+                const deltaX = e.clientX - previousMousePosition.x;
+                const deltaY = e.clientY - previousMousePosition.y;
+
+                if(Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) hasDragged = true;
+
+                // Horizontal rotation
+                sofaGroup.rotation.y += deltaX * 0.01;
+                
+                // Vertical rotation
+                camera.position.y += deltaY * 0.02;
+                camera.position.y = THREE.MathUtils.clamp(camera.position.y, -2, 8); // Clamp vertical position
+                camera.lookAt(0, 1, 0); // Always look at the center of the scene
+
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+            window.addEventListener('mouseup', () => { isDragging = false; });
+            
+            canvasContainer.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                camera.position.z = Math.max(5, Math.min(20, camera.position.z + e.deltaY * 0.01));
+            });
+
+            // --- Raycasting and Tooltip ---
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+            const tooltip = document.getElementById('tooltip');
+            const tooltipLine = document.getElementById('tooltip-svg-line');
+            const tooltipTitle = document.getElementById('tooltip-title');
+            const tooltipBody = document.getElementById('tooltip-body');
+            const tooltipClose = document.getElementById('tooltip-close');
+
+            function hideTooltip() {
+                selectedObject = null;
+                tooltip.classList.remove('visible');
+                tooltipLine.style.display = 'none';
+            }
+
+            canvasContainer.addEventListener('click', (event) => {
+                if (hasDragged) return; 
+                
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(clickableObjects, true);
+
+                if (intersects.length > 0) {
+                    selectedObject = intersects[0].object;
+                    const data = selectedObject.userData;
+                    if (!data.name) return;
+                    const savings = data.before - data.after;
+                    const percentageChange = ((savings / data.before) * 100).toFixed(2);
+                    
+                    tooltipTitle.textContent = data.name;
+                    tooltipBody.innerHTML = `<div class="flex justify-between items-center mb-2"><span class="text-slate-400">Before:</span><span class="font-bold text-red-400 text-lg">$${data.before.toFixed(2)}</span></div><div class="flex justify-between items-center"><span class="text-slate-400">After:</span><span class="font-bold text-green-400 text-lg">$${data.after.toFixed(2)}</span></div><hr class="border-slate-700 my-2"/><p class="text-center text-sm">Savings: <span class="font-bold text-green-400">$${savings.toFixed(2)}</span> (${percentageChange}%)</p>`;
+                    tooltip.classList.add('visible');
+                    tooltipLine.style.display = 'block';
+                } else {
+                    hideTooltip();
+                }
+            });
+            
+            tooltipClose.addEventListener('click', (e) => {
+                e.stopPropagation();
+                hideTooltip();
+            });
+
+            function toScreenPosition(obj, cam, rend) {
+                const vector = new THREE.Vector3();
+                obj.updateWorldMatrix(true, false);
+                vector.setFromMatrixPosition(obj.matrixWorld);
+                vector.project(cam);
+                const rect = rend.domElement.getBoundingClientRect();
+                vector.x = Math.round((0.5 + vector.x / 2) * rect.width);
+                vector.y = Math.round((0.5 - vector.y / 2) * rect.height);
+                return vector;
+            }
+            
+            const clock = new THREE.Clock();
+            function animate() {
+                requestAnimationFrame(animate);
+                const elapsedTime = clock.getElapsedTime();
+
+                if (!isDragging && !selectedObject) {
+                    sofaGroup.rotation.y += 0.002;
+                }
+                
+                if(animatedWorkerHead) {
+                   animatedWorkerHead.rotation.y = Math.sin(elapsedTime * 0.7) * 0.5;
+                }
+
+                workers.forEach(worker => {
+                    if (worker.userData.isWalking) {
+                        worker.position.x += worker.userData.walkDirection * worker.userData.walkSpeed;
+                        
+                        const swingAngle = Math.sin(elapsedTime * 5) * 0.4;
+                        worker.userData.leftLeg.rotation.x = swingAngle;
+                        worker.userData.rightLeg.rotation.x = -swingAngle;
+                        worker.userData.leftArm.rotation.x = -swingAngle;
+                        worker.userData.rightArm.rotation.x = swingAngle;
+
+                        if (worker.position.x > worker.userData.walkBounds.max) {
+                            worker.userData.walkDirection = -1;
+                            worker.rotation.y = Math.PI / 2; // Face left
+                        } else if (worker.position.x < worker.userData.walkBounds.min) {
+                            worker.userData.walkDirection = 1;
+                            worker.rotation.y = -Math.PI / 2; // Face right
+                        }
+                    }
+                });
+
+                if (selectedObject && tooltip.classList.contains('visible')) {
+                    const screenPos = toScreenPosition(selectedObject, camera, renderer);
+                    const tooltipX = screenPos.x > canvasContainer.clientWidth / 2 ? screenPos.x - tooltip.offsetWidth - 20 : screenPos.x + 20;
+                    tooltip.style.left = `${tooltipX}px`;
+                    tooltip.style.top = `${screenPos.y - tooltip.offsetHeight / 2}px`;
+                    tooltipLine.setAttribute('x1', screenPos.x);
+                    tooltipLine.setAttribute('y1', screenPos.y);
+                    tooltipLine.setAttribute('x2', tooltipX + (screenPos.x > canvasContainer.clientWidth / 2 ? tooltip.offsetWidth : 0));
+                    tooltipLine.setAttribute('y2', screenPos.y);
+                }
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                const { clientWidth, clientHeight } = canvasContainer;
+                camera.aspect = clientWidth / clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(clientWidth, clientHeight);
+            });
+            
+            const chartOptions = {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#cbd5e1', font: { size: 14 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) { label += ': '; }
+                                if (context.parsed !== null) {
+                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.raw);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            };
+
+            new Chart(document.getElementById('beforeCostChart'), {
+                type: 'pie', data: {
+                    labels: ['Direct Material', 'Direct Labor', 'Manufacturing Overheads'],
+                    datasets: [{ data: [150, 100, 50],
+                        backgroundColor: ['rgba(255, 99, 132, 0.7)', 'rgba(255, 159, 64, 0.7)', 'rgba(255, 205, 86, 0.7)'],
+                        borderColor: ['#f87171', '#fb923c', '#facc15'], borderWidth: 1
+                    }] }, options: chartOptions
+            });
+
+            new Chart(document.getElementById('afterCostChart'), {
+                type: 'pie', data: {
+                    labels: ['Direct Material', 'Direct Labor', 'Manufacturing Overheads'],
+                    datasets: [{ data: [142.50, 80, 45],
+                        backgroundColor: ['rgba(75, 192, 192, 0.7)', 'rgba(54, 162, 235, 0.7)', 'rgba(153, 102, 255, 0.7)'],
+                         borderColor: ['#2dd4bf', '#38bdf8', '#a78bfa'], borderWidth: 1
+                    }] }, options: chartOptions
+            });
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('visible'); });
+            }, { threshold: 0.1 });
+            document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+        });
+    </script>
+</body>
+</html>
